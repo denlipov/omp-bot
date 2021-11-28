@@ -2,10 +2,12 @@ package router
 
 import (
 	"log"
+	"runtime/debug"
 
+	comm "github.com/denlipov/omp-bot/internal/app/commands/communication"
+	"github.com/denlipov/omp-bot/internal/app/commands/demo"
+	"github.com/denlipov/omp-bot/internal/app/path"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/ozonmp/omp-bot/internal/app/commands/demo"
-	"github.com/ozonmp/omp-bot/internal/app/path"
 )
 
 type Commander interface {
@@ -19,6 +21,7 @@ type Router struct {
 
 	// demoCommander
 	demoCommander Commander
+	commCommander Commander
 	// user
 	// access
 	// buy
@@ -54,6 +57,7 @@ func NewRouter(
 		bot: bot,
 		// demoCommander
 		demoCommander: demo.NewDemoCommander(bot),
+		commCommander: comm.NewCommunicationCommander(bot),
 		// user
 		// access
 		// buy
@@ -85,7 +89,7 @@ func NewRouter(
 func (c *Router) HandleUpdate(update tgbotapi.Update) {
 	defer func() {
 		if panicValue := recover(); panicValue != nil {
-			log.Printf("recovered from panic: %v", panicValue)
+			log.Printf("recovered from panic: %v\n%v", panicValue, string(debug.Stack()))
 		}
 	}()
 
@@ -107,6 +111,8 @@ func (c *Router) handleCallback(callback *tgbotapi.CallbackQuery) {
 	switch callbackPath.Domain {
 	case "demo":
 		c.demoCommander.HandleCallback(callback, callbackPath)
+	case "communication":
+		c.commCommander.HandleCallback(callback, callbackPath)
 	case "user":
 		break
 	case "access":
@@ -178,6 +184,8 @@ func (c *Router) handleMessage(msg *tgbotapi.Message) {
 	switch commandPath.Domain {
 	case "demo":
 		c.demoCommander.HandleCommand(msg, commandPath)
+	case "communication":
+		c.commCommander.HandleCommand(msg, commandPath)
 	case "user":
 		break
 	case "access":
@@ -236,5 +244,8 @@ func (c *Router) handleMessage(msg *tgbotapi.Message) {
 func (c *Router) showCommandFormat(inputMessage *tgbotapi.Message) {
 	outputMsg := tgbotapi.NewMessage(inputMessage.Chat.ID, "Command format: /{command}__{domain}__{subdomain}")
 
-	c.bot.Send(outputMsg)
+	_, err := c.bot.Send(outputMsg)
+	if err != nil {
+		log.Printf("Router.showCommandFormat: error sending reply message to chat - %v", err)
+	}
 }
