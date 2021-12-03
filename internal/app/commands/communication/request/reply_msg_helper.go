@@ -1,9 +1,8 @@
 package request
 
 import (
-	"log"
-
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/rs/zerolog/log"
 )
 
 func (c *CommunicationRequestCommander) replyBotMsg(inputMsg *tgbotapi.Message, replyMsg string) {
@@ -11,7 +10,7 @@ func (c *CommunicationRequestCommander) replyBotMsg(inputMsg *tgbotapi.Message, 
 	msg := tgbotapi.NewMessage(inputMsg.Chat.ID, replyMsg)
 	_, err := c.bot.Send(msg)
 	if err != nil {
-		log.Printf("Error sending reply message to chat ('%s') - %v", replyMsg, err)
+		log.Error().Msgf("Error sending reply message to chat ('%s') - %v", replyMsg, err)
 	}
-	log.Println(replyMsg)
+	log.Debug().Msgf(replyMsg)
 }

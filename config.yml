@@ -1,0 +1,12 @@
+project:
+  name: OMP telegram bot
+  debug: true
+  environment: development
+
+bot:
+  token: 2095883107:AAEF_KUa39YDgqAsLM11dkg8wqrRjghYtMk
+  update_timeout: 60
+
+grpc:
+  com_request_api_uri: localhost:8082
+  service_conn_timeout: 15 # Seconds

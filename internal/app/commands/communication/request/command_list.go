@@ -2,10 +2,10 @@ package request
 
 import (
 	"encoding/json"
-	"log"
 
 	"github.com/denlipov/omp-bot/internal/app/path"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/rs/zerolog/log"
 )
 
 type CallbackListData struct {
@@ -19,13 +19,13 @@ func (c *CommunicationRequestCommander) CallbackList(callback *tgbotapi.Callback
 	nextPageOffsetData := CallbackListData{}
 	err := json.Unmarshal([]byte(callbackPath.CallbackData), &nextPageOffsetData)
 	if err != nil {
-		log.Printf("CommunicationRequestCommander.CallbackList: "+
+		log.Error().Msgf("CommunicationRequestCommander.CallbackList: "+
 			"error reading json data for type CallbackListData from "+
 			"input string %v - %v", callbackPath.CallbackData, err)
 		return
 	}
 
-	requests, _ := c.service.List(nextPageOffsetData.Offset, maxEntriesToList)
+	requests, _ := c.service.List(maxEntriesToList, nextPageOffsetData.Offset)
 	nReqs := len(requests)
 	outputMsgText := ""
 	if nReqs > 0 {
@@ -45,13 +45,13 @@ func (c *CommunicationRequestCommander) CallbackList(callback *tgbotapi.Callback
 
 	_, err = c.bot.Send(msg)
 	if err != nil {
-		log.Printf("CommunicationRequestCommander.CallbackList: error sending reply message to chat - %v", err)
+		log.Error().Msgf("CommunicationRequestCommander.CallbackList: error sending reply message to chat - %v", err)
 	}
 }
 
 func (c *CommunicationRequestCommander) List(inputMsg *tgbotapi.Message) {
 
-	requests, _ := c.service.List(0, maxEntriesToList)
+	requests, _ := c.service.List(maxEntriesToList, 0)
 	nReqs := len(requests)
 	outputMsgText := ""
 	if nReqs > 0 {
@@ -64,7 +64,7 @@ func (c *CommunicationRequestCommander) List(inputMsg *tgbotapi.Message) {
 		outputMsgText += req.String() + "\n"
 	}
 
-	log.Println(outputMsgText)
+	log.Info().Msg(outputMsgText)
 
 	msg := tgbotapi.NewMessage(inputMsg.Chat.ID, outputMsgText)
 
@@ -74,7 +74,7 @@ func (c *CommunicationRequestCommander) List(inputMsg *tgbotapi.Message) {
 
 	_, err := c.bot.Send(msg)
 	if err != nil {
-		log.Printf("CommunicationRequestCommander.List: error sending reply message to chat - %v", err)
+		log.Error().Msgf("CommunicationRequestCommander.List: error sending reply message to chat - %v", err)
 	}
 }
 

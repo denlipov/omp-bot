@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	comm "github.com/denlipov/omp-bot/internal/model/communication"
+	pb "github.com/denlipov/com-request-api/pkg/com-request-api"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
@@ -23,7 +23,7 @@ func (c *CommunicationRequestCommander) Edit(inputMsg *tgbotapi.Message) {
 	idx, _ := strconv.ParseUint(args[0], 10, 64)
 	entryJSON := args[1]
 
-	var req comm.Request
+	var req pb.Request
 	err := json.Unmarshal([]byte(entryJSON), &req)
 	if err != nil {
 		c.replyBotMsg(inputMsg, fmt.Sprintf("Failed to unmarshal user data: %v", err))
@@ -36,5 +36,5 @@ func (c *CommunicationRequestCommander) Edit(inputMsg *tgbotapi.Message) {
 		return
 	}
 
-	c.replyBotMsg(inputMsg, fmt.Sprintf("Request created OK; new idx: %d", idx))
+	c.replyBotMsg(inputMsg, fmt.Sprintf("Request with id %d updated OK", idx))
 }
