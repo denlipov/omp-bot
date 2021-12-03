@@ -1,11 +1,10 @@
 package request
 
 import (
-	"log"
-
 	"github.com/denlipov/omp-bot/internal/app/path"
 	service "github.com/denlipov/omp-bot/internal/service/communication/request"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/rs/zerolog/log"
 )
 
 type RequestCommander interface {
@@ -37,7 +36,7 @@ func (c *CommunicationRequestCommander) HandleCallback(callback *tgbotapi.Callba
 	case "list":
 		c.CallbackList(callback, callbackPath)
 	default:
-		log.Printf("CommunicationRequestCommander.HandleCallback: unknown callback name: %s", callbackPath.CallbackName)
+		log.Info().Msgf("CommunicationRequestCommander.HandleCallback: unknown callback name: %s", callbackPath.CallbackName)
 	}
 }
 
@@ -56,6 +55,6 @@ func (c *CommunicationRequestCommander) HandleCommand(message *tgbotapi.Message,
 	case "edit":
 		c.Edit(message)
 	default:
-		log.Printf("CommunicationRequestCommander.HandleCommand: unknown command name: %s", commandPath.CommandName)
+		log.Info().Msgf("CommunicationRequestCommander.HandleCommand: unknown command name: %s", commandPath.CommandName)
 	}
 }

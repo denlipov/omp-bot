@@ -1,13 +1,13 @@
 package router
 
 import (
-	"log"
 	"runtime/debug"
 
 	comm "github.com/denlipov/omp-bot/internal/app/commands/communication"
 	"github.com/denlipov/omp-bot/internal/app/commands/demo"
 	"github.com/denlipov/omp-bot/internal/app/path"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/rs/zerolog/log"
 )
 
 type Commander interface {
@@ -16,80 +16,23 @@ type Commander interface {
 }
 
 type Router struct {
-	// bot
-	bot *tgbotapi.BotAPI
-
-	// demoCommander
+	bot           *tgbotapi.BotAPI
 	demoCommander Commander
 	commCommander Commander
-	// user
-	// access
-	// buy
-	// delivery
-	// recommendation
-	// travel
-	// loyalty
-	// bank
-	// subscription
-	// license
-	// insurance
-	// payment
-	// storage
-	// streaming
-	// business
-	// work
-	// service
-	// exchange
-	// estate
-	// rating
-	// security
-	// cinema
-	// logistic
-	// product
-	// education
 }
 
-func NewRouter(
-	bot *tgbotapi.BotAPI,
-) *Router {
+func NewRouter(bot *tgbotapi.BotAPI) *Router {
 	return &Router{
-		// bot
-		bot: bot,
-		// demoCommander
+		bot:           bot,
 		demoCommander: demo.NewDemoCommander(bot),
 		commCommander: comm.NewCommunicationCommander(bot),
-		// user
-		// access
-		// buy
-		// delivery
-		// recommendation
-		// travel
-		// loyalty
-		// bank
-		// subscription
-		// license
-		// insurance
-		// payment
-		// storage
-		// streaming
-		// business
-		// work
-		// service
-		// exchange
-		// estate
-		// rating
-		// security
-		// cinema
-		// logistic
-		// product
-		// education
 	}
 }
 
 func (c *Router) HandleUpdate(update tgbotapi.Update) {
 	defer func() {
 		if panicValue := recover(); panicValue != nil {
-			log.Printf("recovered from panic: %v\n%v", panicValue, string(debug.Stack()))
+			log.Error().Msgf("recovered from panic: %v\n%v", panicValue, string(debug.Stack()))
 		}
 	}()
 
@@ -104,7 +47,7 @@ func (c *Router) HandleUpdate(update tgbotapi.Update) {
 func (c *Router) handleCallback(callback *tgbotapi.CallbackQuery) {
 	callbackPath, err := path.ParseCallback(callback.Data)
 	if err != nil {
-		log.Printf("Router.handleCallback: error parsing callback data `%s` - %v", callback.Data, err)
+		log.Error().Msgf("Router.handleCallback: error parsing callback data `%s` - %v", callback.Data, err)
 		return
 	}
 
@@ -164,7 +107,7 @@ func (c *Router) handleCallback(callback *tgbotapi.CallbackQuery) {
 	case "education":
 		break
 	default:
-		log.Printf("Router.handleCallback: unknown domain - %s", callbackPath.Domain)
+		log.Info().Msgf("Router.handleCallback: unknown domain - %s", callbackPath.Domain)
 	}
 }
 
@@ -177,7 +120,7 @@ func (c *Router) handleMessage(msg *tgbotapi.Message) {
 
 	commandPath, err := path.ParseCommand(msg.Command())
 	if err != nil {
-		log.Printf("Router.handleCallback: error parsing callback data `%s` - %v", msg.Command(), err)
+		log.Error().Msgf("Router.handleCallback: error parsing callback data `%s` - %v", msg.Command(), err)
 		return
 	}
 
@@ -237,15 +180,15 @@ func (c *Router) handleMessage(msg *tgbotapi.Message) {
 	case "education":
 		break
 	default:
-		log.Printf("Router.handleCallback: unknown domain - %s", commandPath.Domain)
+		log.Info().Msgf("Router.handleCallback: unknown domain - %s", commandPath.Domain)
 	}
 }
 
 func (c *Router) showCommandFormat(inputMessage *tgbotapi.Message) {
-	outputMsg := tgbotapi.NewMessage(inputMessage.Chat.ID, "Command format: /{command}__{domain}__{subdomain}")
+	outputMsg := tgbotapi.NewMessage(inputMessage.Chat.ID, "Command format: /{command}__communication__request")
 
 	_, err := c.bot.Send(outputMsg)
 	if err != nil {
-		log.Printf("Router.showCommandFormat: error sending reply message to chat - %v", err)
+		log.Error().Msgf("Router.showCommandFormat: error sending reply message to chat - %v", err)
 	}
 }

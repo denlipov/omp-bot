@@ -1,99 +1,154 @@
 package request
 
 import (
-        comm "github.com/denlipov/omp-bot/internal/model/communication"
-        "errors"
+	"context"
+	"errors"
+	"time"
+
+	pb "github.com/denlipov/com-request-api/pkg/com-request-api"
+	"github.com/denlipov/omp-bot/internal/config"
+	"github.com/rs/zerolog/log"
+	"google.golang.org/grpc"
 )
 
 type RequestService interface {
-        Describe(requestID uint64) (*comm.Request, error)
-        List(cursor uint64, limit uint64) ([]comm.Request, error)
-        Create(req comm.Request) (uint64, error)
-        Update(requestID uint64, request comm.Request) error
-        Remove(requestID uint64) (bool, error)
+	Describe(requestID uint64) (*pb.Request, error)
+	List(limit uint64, offset uint64) ([]*pb.Request, error)
+	Create(req pb.Request) (uint64, error)
+	Update(requestID uint64, request pb.Request) error
+	Remove(requestID uint64) (bool, error)
 }
-
 
 type DummyRequestService struct {
-        requests map[uint64]comm.Request
-        maxIdx uint64
+	connOpts []grpc.DialOption
 }
-
 
 func NewDummyRequestService() *DummyRequestService {
-        return &DummyRequestService{
-                requests: map[uint64]comm.Request{
-                        0: comm.Request{
-                                0, "request", "Вася", "no text",
-                        },
-                        1: comm.Request{
-                                1, "request", "Петя", "no text",
-                        },
-                        2: comm.Request{
-                                2, "request", "Миша", "no text",
-                        },
-                        3: comm.Request{
-                                3, "request", "Вова", "no text",
-                        },
-                        4: comm.Request{
-                                4, "request", "Дуся", "no text",
-                        },
-                        5: comm.Request{
-                                5, "request", "Игорь", "no text",
-                        },
-                },
-                maxIdx: 6,
-        }
+	return &DummyRequestService{
+		connOpts: []grpc.DialOption{
+			grpc.WithInsecure(),
+		},
+	}
 }
 
-
-func (s *DummyRequestService) Describe(requestID uint64) (*comm.Request, error) {
-        if r, exists := s.requests[requestID]; exists {
-                return &r, nil
-        } else {
-                return nil, errors.New("Req id out of range")
-        }
+func (s *DummyRequestService) newConnection() (*grpc.ClientConn, error) {
+	conn, err := grpc.Dial(config.GetConfig().Grpc.ComRequestApiURI, s.connOpts...)
+	if err != nil {
+		log.Error().Msgf("fail to dial to communication request service: %+v", err)
+		return nil, err
+	}
+	return conn, nil
 }
 
-
-func (s *DummyRequestService) List(cursor uint64, limit uint64) ([]comm.Request, error) {
-        result := make([]comm.Request, 0, limit)
-        var totalProcessed uint64 = 0
-        for i := cursor; i < s.maxIdx && totalProcessed < limit; i++ {
-                if req, exists := s.requests[i]; exists {
-                        result = append(result, req)
-                        totalProcessed++
-                }
-        }
-        return result, nil
+func getTimeoutCtx() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(),
+		time.Duration(config.GetConfig().Grpc.ServiceConnTimeout)*time.Second)
 }
 
+func (s *DummyRequestService) Describe(requestID uint64) (*pb.Request, error) {
+	conn, err := s.newConnection()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
 
-func (s *DummyRequestService) Create(req comm.Request) (uint64, error) {
-        req.Id = s.maxIdx
-        s.requests[s.maxIdx] = req
-        resIdx := s.maxIdx
-        s.maxIdx++
-        return resIdx, nil
+	client := pb.NewComRequestApiServiceClient(conn)
+	ctx, cancel := getTimeoutCtx()
+	defer cancel()
+
+	resp, err := client.DescribeRequestV1(ctx, &pb.DescribeRequestV1Request{RequestId: requestID})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Value, nil
 }
 
+func (s *DummyRequestService) List(limit uint64, offset uint64) ([]*pb.Request, error) {
+	conn, err := s.newConnection()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
 
-func (s *DummyRequestService) Update(requestID uint64, request comm.Request) error {
-        if _, exists := s.requests[requestID]; exists {
-                request.Id = requestID
-                s.requests[requestID] = request
-                return nil
-        } else {
-                return errors.New("Req id out of range")
-        }
+	client := pb.NewComRequestApiServiceClient(conn)
+	ctx, cancel := getTimeoutCtx()
+	defer cancel()
+
+	resp, err := client.ListRequestV1(ctx, &pb.ListRequestV1Request{
+		Limit:  limit,
+		Offset: offset,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Request, nil
 }
 
+func (s *DummyRequestService) Create(req pb.Request) (uint64, error) {
+	conn, err := s.newConnection()
+	if err != nil {
+		return 0, err
+	}
+	defer conn.Close()
+
+	client := pb.NewComRequestApiServiceClient(conn)
+	ctx, cancel := getTimeoutCtx()
+	defer cancel()
+
+	resp, err := client.CreateRequestV1(ctx, &pb.CreateRequestV1Request{
+		Request: &req,
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	return resp.RequestId, nil
+}
+
+func (s *DummyRequestService) Update(requestID uint64, request pb.Request) error {
+	conn, err := s.newConnection()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	client := pb.NewComRequestApiServiceClient(conn)
+	ctx, cancel := getTimeoutCtx()
+	defer cancel()
+
+	resp, err := client.UpdateRequestV1(ctx, &pb.UpdateRequestV1Request{
+		RequestId: requestID,
+		Body: &pb.UpdateRequestBody{
+			Service: request.Service,
+			User:    request.User,
+			Text:    request.Text,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	if !resp.Status {
+		return errors.New("Serv returned status 'Not updated'")
+	}
+	return nil
+}
 
 func (s *DummyRequestService) Remove(requestID uint64) (bool, error) {
-        if _, exists := s.requests[requestID]; exists {
-                delete(s.requests, requestID)
-                return true, nil
-        } else {
-                return false, errors.New("Req id out of range")
-        }
+	conn, err := s.newConnection()
+	if err != nil {
+		return false, err
+	}
+	defer conn.Close()
+
+	client := pb.NewComRequestApiServiceClient(conn)
+	ctx, cancel := getTimeoutCtx()
+	defer cancel()
+
+	resp, err := client.RemoveRequestV1(ctx, &pb.RemoveRequestV1Request{
+		RequestId: requestID,
+	})
+	if err != nil {
+		return false, err
+	}
+	return resp.Status, nil
 }
